@@ -1,26 +1,18 @@
-```powershell
-# ============================================================
+$codigo = @'
 # IT Support Toolkit
 # Windows System Diagnostic
 # Author: Gustavo
-# ============================================================
 
 Clear-Host
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "           IT SUPPORT TOOLKIT - SYSTEM            " -ForegroundColor Cyan
+Write-Host "          IT SUPPORT TOOLKIT - SYSTEM            " -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ------------------------------------------------------------
-# BASIC INFORMATION
-# ------------------------------------------------------------
-
-Write-Host "--------------------------------------------------"
 Write-Host "SYSTEM INFORMATION" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
-Write-Host ""
+Write-Host "------------------"
 
 $OS = Get-CimInstance Win32_OperatingSystem
 $Computer = Get-CimInstance Win32_ComputerSystem
@@ -31,207 +23,105 @@ Write-Host "Operating OS : $($OS.Caption)"
 Write-Host "Version      : $($OS.Version)"
 Write-Host "Build        : $($OS.BuildNumber)"
 Write-Host "Architecture : $($OS.OSArchitecture)"
-
 Write-Host ""
 
-# ------------------------------------------------------------
-# CPU USAGE
-# ------------------------------------------------------------
+Write-Host "PROCESSOR INFORMATION" -ForegroundColor Yellow
+Write-Host "----------------------"
 
-Write-Host "--------------------------------------------------"
-Write-Host "CPU USAGE" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
-Write-Host ""
+$CPU = Get-CimInstance Win32_Processor
 
-try {
-
-    $CPU = Get-Counter '\Processor(_Total)\% Processor Time'
-
-    $CPUUsage = [math]::Round(
-        $CPU.CounterSamples[0].CookedValue,
-        2
-    )
-
-    Write-Host "CPU Usage    : $CPUUsage %"
-
-    if ($CPUUsage -lt 50) {
-
-        Write-Host "[OK] CPU usage normal." -ForegroundColor Green
-
-    }
-    elseif ($CPUUsage -lt 80) {
-
-        Write-Host "[WARNING] CPU usage elevated." -ForegroundColor Yellow
-
-    }
-    else {
-
-        Write-Host "[CRITICAL] CPU usage high." -ForegroundColor Red
-    }
-
-}
-catch {
-
-    Write-Host "[ERROR] Unable to read CPU usage." -ForegroundColor Red
+foreach ($Processor in $CPU) {
+    Write-Host "CPU          : $($Processor.Name)"
+    Write-Host "Cores        : $($Processor.NumberOfCores)"
+    Write-Host "Logical CPUs : $($Processor.NumberOfLogicalProcessors)"
+    Write-Host "Max Clock    : $($Processor.MaxClockSpeed) MHz"
 }
 
 Write-Host ""
 
-# ------------------------------------------------------------
-# MEMORY USAGE
-# ------------------------------------------------------------
+Write-Host "MEMORY STATUS" -ForegroundColor Yellow
+Write-Host "-------------"
 
-Write-Host "--------------------------------------------------"
-Write-Host "MEMORY USAGE" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
-Write-Host ""
+$TotalRAMGB = [math]::Round($Computer.TotalPhysicalMemory / 1GB, 2)
+$FreeRAMGB = [math]::Round(($OS.FreePhysicalMemory * 1KB) / 1GB, 2)
+$UsedRAMGB = [math]::Round($TotalRAMGB - $FreeRAMGB, 2)
 
-try {
-
-    $TotalRAM = [math]::Round(
-        $Computer.TotalPhysicalMemory / 1GB,
-        2
-    )
-
-    $FreeRAM = [math]::Round(
-        $OS.FreePhysicalMemory / 1MB,
-        2
-    )
-
-    $UsedRAM = [math]::Round(
-        $TotalRAM - $FreeRAM,
-        2
-    )
-
-    $RAMPercent = [math]::Round(
-        ($UsedRAM / $TotalRAM) * 100,
-        2
-    )
-
-    Write-Host "Total RAM    : $TotalRAM GB"
-    Write-Host "Used RAM     : $UsedRAM GB"
-    Write-Host "Free RAM     : $FreeRAM GB"
-    Write-Host "Usage        : $RAMPercent %"
-
-    if ($RAMPercent -lt 70) {
-
-        Write-Host "[OK] Memory usage normal." -ForegroundColor Green
-
-    }
-    elseif ($RAMPercent -lt 90) {
-
-        Write-Host "[WARNING] Memory usage elevated." -ForegroundColor Yellow
-
-    }
-    else {
-
-        Write-Host "[CRITICAL] Memory usage high." -ForegroundColor Red
-    }
-
+if ($TotalRAMGB -gt 0) {
+    $RAMPercent = [math]::Round(($UsedRAMGB / $TotalRAMGB) * 100, 2)
 }
-catch {
+else {
+    $RAMPercent = 0
+}
 
-    Write-Host "[ERROR] Unable to read memory usage." -ForegroundColor Red
+Write-Host "Total RAM : $TotalRAMGB GB"
+Write-Host "Used RAM  : $UsedRAMGB GB"
+Write-Host "Free RAM  : $FreeRAMGB GB"
+Write-Host "Usage     : $RAMPercent %"
+
+if ($RAMPercent -lt 70) {
+    Write-Host "[OK] Memory usage normal." -ForegroundColor Green
+}
+elseif ($RAMPercent -lt 90) {
+    Write-Host "[WARNING] Memory usage elevated." -ForegroundColor Yellow
+}
+else {
+    Write-Host "[CRITICAL] Memory usage high." -ForegroundColor Red
 }
 
 Write-Host ""
 
-# ------------------------------------------------------------
-# DISK SPACE
-# ------------------------------------------------------------
+Write-Host "DISK STATUS" -ForegroundColor Yellow
+Write-Host "-----------"
 
-Write-Host "--------------------------------------------------"
-Write-Host "DISK SPACE" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
-Write-Host ""
+$Disks = Get-CimInstance Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3}
 
-try {
+foreach ($Disk in $Disks) {
 
-    $Disks = Get-CimInstance Win32_LogicalDisk |
-        Where-Object {
-            $_.DriveType -eq 3
-        }
+    if ($Disk.Size -gt 0) {
 
-    foreach ($Disk in $Disks) {
+        $SizeGB = [math]::Round($Disk.Size / 1GB, 2)
+        $FreeGB = [math]::Round($Disk.FreeSpace / 1GB, 2)
+        $UsedGB = [math]::Round($SizeGB - $FreeGB, 2)
+        $UsedPercent = [math]::Round(($UsedGB / $SizeGB) * 100, 2)
 
-        $SizeGB = [math]::Round(
-            $Disk.Size / 1GB,
-            2
-        )
-
-        $FreeGB = [math]::Round(
-            $Disk.FreeSpace / 1GB,
-            2
-        )
-
-        $UsedPercent = [math]::Round(
-            (($SizeGB - $FreeGB) / $SizeGB) * 100,
-            2
-        )
-
-        Write-Host "$($Disk.DeviceID)"
-        Write-Host "  Total : $SizeGB GB"
-        Write-Host "  Free  : $FreeGB GB"
-        Write-Host "  Used  : $UsedPercent %"
-        Write-Host ""
+        Write-Host "Drive : $($Disk.DeviceID)"
+        Write-Host "Total : $SizeGB GB"
+        Write-Host "Used  : $UsedGB GB"
+        Write-Host "Free  : $FreeGB GB"
+        Write-Host "Usage : $UsedPercent %"
 
         if ($FreeGB -lt 10) {
-
-            Write-Host "[CRITICAL] Low disk space." -ForegroundColor Red
-
+            Write-Host "[CRITICAL] Very low disk space." -ForegroundColor Red
         }
-        elseif ($UsedPercent -gt 80) {
-
-            Write-Host "[WARNING] Disk usage high." -ForegroundColor Yellow
-
+        elseif ($UsedPercent -ge 80) {
+            Write-Host "[WARNING] Disk usage is high." -ForegroundColor Yellow
         }
         else {
-
             Write-Host "[OK] Disk space normal." -ForegroundColor Green
         }
 
         Write-Host ""
     }
-
-}
-catch {
-
-    Write-Host "[ERROR] Unable to check disk space." -ForegroundColor Red
 }
 
-# ------------------------------------------------------------
-# TOP PROCESSES
-# ------------------------------------------------------------
+Write-Host "TOP PROCESSES" -ForegroundColor Yellow
+Write-Host "-------------"
 
-Write-Host "--------------------------------------------------"
-Write-Host "TOP PROCESSES BY CPU" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
+$Processes = Get-Process |
+    Sort-Object WorkingSet64 -Descending |
+    Select-Object -First 10
+
+foreach ($Process in $Processes) {
+
+    $MemoryMB = [math]::Round($Process.WorkingSet64 / 1MB, 2)
+
+    Write-Host "$($Process.ProcessName) - PID $($Process.Id) - $MemoryMB MB"
+}
+
 Write-Host ""
 
-try {
-
-    Get-Process |
-        Sort-Object CPU -Descending |
-        Select-Object -First 10 `
-            ProcessName,
-            Id,
-            CPU |
-        Format-Table -AutoSize
-
-}
-catch {
-
-    Write-Host "[ERROR] Unable to retrieve processes." -ForegroundColor Red
-}
-
-# ------------------------------------------------------------
-# IMPORTANT SERVICES
-# ------------------------------------------------------------
-
-Write-Host "--------------------------------------------------"
 Write-Host "IMPORTANT WINDOWS SERVICES" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
-Write-Host ""
+Write-Host "---------------------------"
 
 $Services = @(
     "wuauserv",
@@ -243,74 +133,61 @@ $Services = @(
 
 foreach ($ServiceName in $Services) {
 
-    try {
+    $Service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 
-        $Service = Get-Service `
-            -Name $ServiceName `
-            -ErrorAction Stop
-
-        if ($Service.Status -eq "Running") {
-
-            Write-Host "[RUNNING] $($Service.DisplayName)" `
-                -ForegroundColor Green
-
-        }
-        else {
-
-            Write-Host "[STOPPED] $($Service.DisplayName)" `
-                -ForegroundColor Yellow
-        }
-
+    if ($null -eq $Service) {
+        Write-Host "[NOT FOUND] $ServiceName"
     }
-    catch {
-
-        Write-Host "[NOT FOUND] $ServiceName" `
-            -ForegroundColor Gray
+    elseif ($Service.Status -eq "Running") {
+        Write-Host "[RUNNING] $($Service.DisplayName)" -ForegroundColor Green
+    }
+    else {
+        Write-Host "[STOPPED] $($Service.DisplayName)" -ForegroundColor Yellow
     }
 }
 
 Write-Host ""
 
-# ------------------------------------------------------------
-# SYSTEM UPTIME
-# ------------------------------------------------------------
-
-Write-Host "--------------------------------------------------"
 Write-Host "SYSTEM UPTIME" -ForegroundColor Yellow
-Write-Host "--------------------------------------------------"
+Write-Host "-------------"
+
+$LastBoot = $OS.LastBootUpTime
+
+if ($LastBoot -is [datetime]) {
+
+    $Uptime = (Get-Date) - $LastBoot
+
+    Write-Host "Last Boot : $LastBoot"
+    Write-Host "Uptime    : $($Uptime.Days) days, $($Uptime.Hours) hours, $($Uptime.Minutes) minutes"
+}
+else {
+    Write-Host "[WARNING] Unable to determine system uptime." -ForegroundColor Yellow
+}
+
 Write-Host ""
+
+Write-Host "NETWORK ADAPTERS" -ForegroundColor Yellow
+Write-Host "----------------"
 
 try {
-
-    $LastBoot = $OS.LastBootUpTime
-
-    if ($LastBoot -is [datetime]) {
-
-        $Uptime = (Get-Date) - $LastBoot
-
-        Write-Host "Last Boot : $LastBoot"
-        Write-Host "Uptime    : $($Uptime.Days) days, $($Uptime.Hours) hours, $($Uptime.Minutes) minutes"
-
-    }
-
+    Get-NetAdapter |
+        Select-Object Name, Status, MacAddress, LinkSpeed |
+        Format-Table -AutoSize
 }
 catch {
-
-    Write-Host "[ERROR] Unable to calculate uptime." -ForegroundColor Red
+    Write-Host "[WARNING] Network adapter information unavailable." -ForegroundColor Yellow
 }
 
 Write-Host ""
 
-# ------------------------------------------------------------
-# FINAL STATUS
-# ------------------------------------------------------------
-
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "             SYSTEM CHECK COMPLETED               " -ForegroundColor Green
+Write-Host "          SYSTEM CHECK COMPLETED                  " -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "IT Support Toolkit"
-Write-Host "Author: Gustavo" -ForegroundColor Gray
+Write-Host "IT Support Toolkit - Windows System Diagnostic"
+Write-Host "Author: Gustavo"
 Write-Host ""
-```
+'@
+
+Set-Content -Path "C:\Users\GustavoEstudo\Downloads\sistema.ps1" -Value $codigo -Encoding UTF8
