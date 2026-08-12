@@ -107,7 +107,7 @@ Facilitar o troubleshooting de problemas relacionados à rede.
 
 ### Screenshot
 
-![Network Diagnostic](screenshots/network.png)
+![Network Diagnostic](screenshots/diagnostico-rede.png)
 
 ---
 
